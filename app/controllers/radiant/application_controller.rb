@@ -5,8 +5,8 @@ module Radiant
   class ApplicationController < ::ActionController::Base
     include ::LoginSystem
 
-    before_filter :set_timezone
-    before_filter :set_javascripts_and_stylesheets
+    before_action :set_timezone
+    before_action :set_javascripts_and_stylesheets
 
     attr_accessor :cache
     attr_reader :pagination_parameters, :detail

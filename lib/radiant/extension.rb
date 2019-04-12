@@ -18,6 +18,10 @@ module Radiant
     def root
       path.to_s
     end
+
+    def define_routes
+      ActiveSupport::Deprecation.warn("#{self.class}#defined_routes no longer works", caller)
+    end
     
     def migrated?
       migrator.new(:up, migrations_path).pending_migrations.empty?
@@ -108,8 +112,8 @@ module Radiant
       def activate_extension
         return if instance.active?
         instance.activate if instance.respond_to? :activate
-        ActionController::Routing::Routes.configuration_files.unshift(instance.routing_file) if instance.routed?
-        ActionController::Routing::Routes.reload
+        # ActionController::Routing::Routes.configuration_files.unshift(instance.routing_file) if instance.routed?
+        # ActionController::Routing::Routes.reload
         instance.active = true
       end
       alias :activate :activate_extension

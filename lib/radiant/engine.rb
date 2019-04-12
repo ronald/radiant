@@ -32,8 +32,12 @@ module Radiant
     
     config.active_record.observers = 'Radiant::UserActionObserver'
     
-    initializer 'radiant.configuraton' do |app|
+    initializer 'radiant.configuration' do |app|
       config.extension_paths = default_extension_paths
+
+      if Object.const_defined?('RadiantExtensionLoaderManet')
+        RadiantExtensionLoaderManet.instance.run_in_radiant_engine_rb
+      end
     end
     
     # Sets the locations in which we look for vendored extensions. Normally:
@@ -63,17 +67,23 @@ module Radiant
 
     def all_available_extensions
       # load vendorized extensions by inspecting load path(s)
-      all = extension_paths.map do |path|
+      all = config.extension_paths.map do |path|
         Dir["#{path}/*"].select {|f| File.directory?(f) }
       end
       # load any gem that follows extension rules
-      gems.inject(all) do |available,gem|
-        available << gem.specification.full_gem_path if gem.specification and
-          gem.specification.full_gem_path[/radiant-.*-extension-[\d\.]+$/]
-        available
-      end
+      # gems.inject(all) do |available,gem|
+      #   available << gem.specification.full_gem_path if gem.specification and
+      #     gem.specification.full_gem_path[/radiant-.*-extension-[\d\.]+$/]
+      #   available
+      # end
+
       # strip version info to glean proper extension names
-      all.flatten.map {|f| File.basename(f).gsub(/^radiant-|-extension-[\d\.]+$/, '') }.sort.map {|e| e.to_sym }
+      all.flatten.map {|f|
+        dir = f
+        name = File.basename(f).gsub(/^radiant-|-extension-[\d\.]+$/, '')
+        ExtensionPath.new(name: name, path: dir)
+        name
+      }.sort.map {|e| e.to_sym }
     end
 
     def admin

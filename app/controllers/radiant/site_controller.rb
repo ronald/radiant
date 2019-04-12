@@ -4,7 +4,7 @@ module Radiant
   class SiteController < Radiant::ApplicationController
     include Radiant::Pagination::Controller
 
-    skip_before_filter :verify_authenticity_token
+    skip_before_action :verify_authenticity_token
 
     def self.cache_timeout=(val)
       Radiant::PageResponseCacheDirector.cache_timeout=(val)
@@ -12,7 +12,12 @@ module Radiant
     def self.cache_timeout
       Radiant::PageResponseCacheDirector.cache_timeout
     end
-
+    class Response
+      attr_accessor :status, :headers, :body
+      def initialize
+        self.headers = {}
+      end
+    end
     def show_page
       url = params[:url]
       if Array === url
@@ -22,9 +27,10 @@ module Radiant
       end
       if @page = find_page(url)
         batch_page_status_refresh if (url == "/" || url == "")
-        process_page(@page)
+        response = process_page(@page)
         set_cache_control
         @performed_render ||= true
+        render body: response.body, status: response.status, content_type: response.headers['Content-Type'] || 'text/html'
       else
         render template: 'radiant/site/not_found', status: 404
       end
@@ -35,22 +41,22 @@ module Radiant
     def cacheable_request?
       (request.head? || request.get?) && live?
     end
-    hide_action :cacheable_request?
+    # hide_action :cacheable_request?
 
     def set_expiry(time, options={})
       expires_in time, options
     end
-    hide_action :set_expiry
+    # hide_action :set_expiry
 
     def set_etag(val)
       headers['ETag'] = val
     end
-    hide_action :set_expiry
+    # hide_action :set_expiry
 
     private
       def batch_page_status_refresh
         @changed_pages = []
-        @pages = Page.all.where(status_id: Status[:scheduled].id)
+        @pages = Page.where(status_id: Status[:scheduled].id)
         @pages.each do |page|
           if page.published_at <= Time.now
              page.status_id = Status[:published].id
@@ -84,8 +90,10 @@ module Radiant
       end
 
       def process_page(page)
-        page.pagination_parameters = pagination_parameters
-        page.process(request, response)
+        Response.new.tap do |response|
+          page.pagination_parameters = pagination_parameters
+          page.process(request, response)
+        end
       end
 
       def dev?

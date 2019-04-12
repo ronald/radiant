@@ -70,7 +70,7 @@ module LoginSystem
     end
 
     def login_from_http
-      if [Mime::XML, Mime::JSON].include?(request.format)
+      if [Mime[:xml], Mime[:json]].include?(request.format)
         authenticate_with_http_basic do |user_name, password|
           User.authenticate(user_name, password)
         end
@@ -83,17 +83,21 @@ module LoginSystem
 
   module ClassMethods
     def no_login_required
-      skip_before_filter :authenticate
-      skip_before_filter :authorize
+      if login_required?
+        skip_before_action :authenticate
+        skip_before_action :authorize
+      end
     end
 
     def login_required?
-      _process_action_callbacks.any? {|f| f.method == :authenticate || f.method == :authorize }
+      _process_action_callbacks.any? do |f|
+        f.filter == :authenticate || f.filter == :authorize
+      end
     end
 
     def login_required
       unless login_required?
-        prepend_before_filter :authenticate, :authorize
+        prepend_before_action :authenticate, :authorize
       end
     end
 

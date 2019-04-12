@@ -1,7 +1,7 @@
 module Radiant
   class Admin::WelcomeController < ::Radiant::ApplicationController
-    before_filter :never_cache
-    skip_before_filter :verify_authenticity_token
+    before_action :never_cache
+    skip_before_action :verify_authenticity_token
 
     def index
       redirect_to admin_pages_url

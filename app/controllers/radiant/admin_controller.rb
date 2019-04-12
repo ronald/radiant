@@ -3,11 +3,11 @@ module Radiant
     protect_from_forgery
 
     # from login system
-    prepend_before_filter :authorize, :authenticate
+    prepend_before_action :authorize, :authenticate
 
-    before_filter :set_current_user
-    before_filter :set_user_locale
-    before_filter :set_standard_body_style, only: [:new, :edit, :update, :create]
+    before_action :set_current_user
+    before_action :set_user_locale
+    before_action :set_standard_body_style, only: [:new, :edit, :update, :create]
 
   private
 

@@ -2,7 +2,7 @@ require 'radiant/available_locales'
 
 module Radiant
   class Admin::PreferencesController < ::Radiant::AdminController
-    before_filter :load_user
+    before_action :load_user
 
     def initialize
       super

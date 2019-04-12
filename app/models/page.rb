@@ -16,7 +16,7 @@ class Page < ActiveRecord::Base
   before_save :update_virtual, :update_status, :set_allowed_children_cache
 
   # Associations
-  acts_as_tree order: 'virtual DESC, title ASC'
+  acts_as_tree order: [virtual: 'DESC', title: 'ASC']
   has_many :parts, ->{ order(:id) }, class_name: 'PagePart', dependent: :destroy
   accepts_nested_attributes_for :parts, allow_destroy: true
   has_many :fields, ->{ order(:id) }, class_name: 'PageField', dependent: :destroy
@@ -369,7 +369,12 @@ class Page < ActiveRecord::Base
     end
 
     def parse(text)
-      lazy_initialize_parser_and_context.parse(text)
+      r = lazy_initialize_parser_and_context.parse(text)
+      if r.respond_to?(:html_safe)
+        r.html_safe
+      else
+        r
+      end
     end
 
     def parse_object(object)
@@ -378,5 +383,4 @@ class Page < ActiveRecord::Base
       text = object.filter.filter(text) if object.respond_to? :filter_id
       text
     end
-
 end

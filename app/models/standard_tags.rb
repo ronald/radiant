@@ -54,9 +54,9 @@ module StandardTags
     Renders the total number of children.
   }
   tag 'children:count' do |tag|
-    options = children_find_options(tag)
-    options.delete(:order) # Order is irrelevant
-    tag.locals.children.count(options)
+    base = children_find_options(tag, tag.locals.children)
+    base.reorder('') # Order is irrelevant
+    base.size
   end
 
   desc %{
@@ -68,9 +68,7 @@ module StandardTags
     <pre><code><r:children:first>...</r:children:first></code></pre>
   }
   tag 'children:first' do |tag|
-    options = children_find_options(tag)
-    order = options.delete(:order)
-    children = tag.locals.children.reorder(order).all.where(options)
+    base = children_find_options(tag, tag.locals.children)
     if first = children.first
       tag.locals.page = first
       tag.expand
@@ -86,10 +84,8 @@ module StandardTags
     <pre><code><r:children:last>...</r:children:last></code></pre>
   }
   tag 'children:last' do |tag|
-    options = children_find_options(tag)
-    order = options.delete(:order)
-    children = tag.locals.children.reorder(order).all.where(options)
-    if last = children.last
+    base = children_find_options(tag, tag.locals.children)
+    if last = base.last
       tag.locals.page = last
       tag.expand
     end
@@ -315,8 +311,9 @@ module StandardTags
     <pre><code><r:if_children [status="published"]>...</r:if_children></code></pre>
   }
   tag "if_children" do |tag|
-    children = tag.locals.page.children.where(children_find_options(tag)[:conditions]).count
-    tag.expand if children > 0
+    children = children_find_options(tag, tag.locals.page.children)
+
+    tag.expand if children.size > 0
   end
 
   desc %{
@@ -330,8 +327,9 @@ module StandardTags
     <pre><code><r:unless_children [status="published"]>...</r:unless_children></code></pre>
   }
   tag "unless_children" do |tag|
-    children = tag.locals.page.children.where(children_find_options(tag)[:conditions]).count
-    tag.expand unless children > 0
+    children = children_find_options(tag, tag.locals.page.children)
+
+    tag.expand unless children.size > 0
   end
 
     desc %{
@@ -375,12 +373,10 @@ module StandardTags
   end
 
   tag "aggregate:each:children:each" do |tag|
-    options = children_find_options(tag)
-    order = options.delete(:order)
+    children = children_find_options(tag, tag.locals.children)
     result = []
-    children = tag.locals.children.reorder(order)
     tag.locals.previous_headers = {}
-    children.all.where(options).each do |item|
+    children.each do |item|
       tag.locals.child = item
       tag.locals.page = item
       result << tag.expand
@@ -403,13 +399,8 @@ module StandardTags
     </r:aggregate></code></pre>
   }
   tag "aggregate:children:count" do |tag|
-    options = aggregate_children(tag)
-    if ActiveRecord::Base.connection.adapter_name.downcase == 'postgresql'
-      options[:group] = Page.columns.map {|c| c.name}.join(', ')
-      Page.all.where(options).size
-    else
-      Page.count(options)
-    end
+    base = aggregate_children(tag)
+    base.size
   end
   desc %{
     Renders the contained block for each child of the aggregated pages.  Accepts the
@@ -440,9 +431,8 @@ module StandardTags
     </r:aggregate></code></pre>
   }
   tag "aggregate:children:first" do |tag|
-    options = aggregate_children(tag)
-    children = Page.all.where(options)
-    if first = children.first
+    chilren = aggregate_children(tag)
+    if first = chilren.first
       tag.locals.page = first
       tag.expand
     end
@@ -461,9 +451,8 @@ module StandardTags
     </r:aggregate></code></pre>
   }
   tag "aggregate:children:last" do |tag|
-    options = aggregate_children(tag)
-    children = Page.all.where(options)
-    if last = children.last
+    chilren = aggregate_children(tag)
+    if last = chilren.last
       tag.locals.page = last
       tag.expand
     end
@@ -1147,16 +1136,16 @@ module StandardTags
     def render_children_with_pagination(tag, opts={})
       if opts[:aggregate]
         findable = Page
-        options = aggregate_children(tag)
+        base = aggregate_children(tag)
       else
         findable = tag.locals.children
-        options = children_find_options(tag)
+        base = children_find_options(tag)
       end
       paging = pagination_find_options(tag)
       result = []
       tag.locals.previous_headers = {}
-      order = options.delete(:order)
-      displayed_children = paging ? findable.paginate(options.merge(paging)).reorder(order) : findable.reorder(order).all(options)
+      # displayed_children = paging ? findable.paginate(options.merge(paging)).reorder(order) : findable.reorder(order).all(options)
+      displayed_children = base.to_a
       displayed_children.each_with_index do |item, i|
         tag.locals.child = item
         tag.locals.page = item
@@ -1171,15 +1160,13 @@ module StandardTags
       result.flatten.join('')
     end
 
-    def children_find_options(tag)
+    def children_find_options(tag, base = Page)
       attr = tag.attr.symbolize_keys
-
-      options = {}
 
       [:limit, :offset].each do |symbol|
         if number = attr[symbol]
           if number =~ /^\d+$/
-            options[symbol] = number.to_i
+            base = base.send(symbol, number.to_i)
           else
             raise TagError.new("`#{symbol}' attribute must be a positive number")
           end
@@ -1199,30 +1186,25 @@ module StandardTags
       else
         raise TagError.new(%{`order' attribute of `each' tag must be set to either "asc" or "desc"})
       end
-      options[:order] = order_string
+      base = base.order(order_string)
 
       status = (attr[:status] || ( dev?(tag.globals.page.request) ? 'all' : 'published')).downcase
       unless status == 'all'
         stat = Status[status]
         unless stat.nil?
-          options[:conditions] = ["(virtual = ?) and (status_id = ?)", false, stat.id]
+          base = base.where("(virtual = ?) and (status_id = ?)", false, stat.id)
         else
           raise TagError.new(%{`status' attribute of `each' tag must be set to a valid status})
         end
       else
-        options[:conditions] = ["virtual = ?", false]
+        base = base.where("virtual = ?", false)
       end
       options
     end
 
     def aggregate_children(tag)
-      options = children_find_options(tag)
-      parent_ids = tag.locals.parent_ids
-
-      conditions = options[:conditions]
-      conditions.first << " AND parent_id IN (?)"
-      conditions << parent_ids
-      options
+      children = children_find_options(tag)
+      children.where(parent_id: tag.locals.parent_ids)
     end
 
     def pagination_find_options(tag)
