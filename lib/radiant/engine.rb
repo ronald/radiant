@@ -12,7 +12,16 @@ module Radiant
       g.test_framework :rspec
       g.integration_tool :cucumber
     end
-
+    initializer "radiant.load_radiant_cache" do |app|
+      # This is a thin wrapper around Rack::Cache middleware.
+      #
+      # Comment out this line if you want to turn off all caching, or
+      # add options to modify the behavior. In the majority of deployment
+      # scenarios it is desirable to leave Radiant's cache enabled and in
+      # the default configuration.
+      require 'radiant/cache'
+      app.middleware.insert_after Rack::Sendfile, Radiant::Cache # , verbose: Rails.env.development?
+    end
     initializer 'radiant.load_static_assets' do |app|
       app.middleware.use ::ActionDispatch::Static, "#{root}/public"
     end
