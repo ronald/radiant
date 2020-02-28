@@ -2,7 +2,7 @@ require 'rack/cache'
 require 'fileutils'
 
 module Radiant
-  module Cache
+  class Cache
     def self.new(backend, options = {})
       Rack::Cache.new(backend, {
         entitystore: "file:tmp/cache/entity",
