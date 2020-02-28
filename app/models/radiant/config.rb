@@ -91,15 +91,14 @@ module Radiant
 
     class << self
       def [](key)
-          cache = Rails.cache.fetch(CACHE_KEY) do
-            if table_exists?
-              Radiant::Config.to_hash
-            else
-              raise "missing table: #{self.table_name}"
-            end
+        cache = Rails.cache.fetch(CACHE_KEY) do
+          if table_exists?
+            Radiant::Config.to_hash
+          else
+            raise "missing table: #{self.table_name}"
           end
-          cache[key]
         end
+        cache[key]
       end
 
       def []=(key, value)
