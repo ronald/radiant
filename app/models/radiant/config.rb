@@ -85,24 +85,29 @@ module Radiant
     after_save :update_cache
     attr_reader :definition
 
+    CACHE_KEY = 'Radiant::Config'
+
     class ConfigError < RuntimeError; end
 
     class << self
       def [](key)
-        if table_exists?
-          unless Radiant::Config.cache_file_exists?
-            Radiant::Config.ensure_cache_file
-            Radiant::Config.initialize_cache
+          cache = Rails.cache.fetch(CACHE_KEY) do
+            if table_exists?
+              Radiant::Config.to_hash
+            else
+              raise "missing table: #{self.table_name}"
+            end
           end
-          Radiant::Config.initialize_cache if Radiant::Config.stale_cache?
-          Rails.cache.read('Radiant::Config')[key]
+          cache[key]
         end
       end
 
       def []=(key, value)
         if table_exists?
           setting = find_or_initialize_by(key: key)
-          setting.value = value
+          setting.value = value.tap do
+            Rails.cache.set(CACHE_KEY, Radiant::Cache.to_hash)
+          end
         end
       end
 
@@ -110,34 +115,7 @@ module Radiant
         Hash[ *all.map { |pair| [pair.key, pair.value] }.flatten ]
       end
 
-      def initialize_cache
-        Radiant::Config.ensure_cache_file
-        Rails.cache.write('Radiant::Config',Radiant::Config.to_hash)
-        Rails.cache.write('Radiant.cache_mtime', File.mtime(cache_file))
-        Rails.cache.silence!
-      end
-
-      def cache_file_exists?
-        File.file?(cache_file)
-      end
-
-      def stale_cache?
-        return true unless Radiant::Config.cache_file_exists?
-        Rails.cache.read('Radiant.cache_mtime') != File.mtime(cache_file)
-      end
-
-      def ensure_cache_file
-        FileUtils.mkpath(cache_path)
-        FileUtils.touch(cache_file)
-      end
-
-      def cache_path
-        "#{Rails.root}/tmp"
-      end
-
-      def cache_file
-        cache_file = File.join(cache_path,'radiant_config_cache.txt')
-      end
+        #Rails.cache.silence!
 
       def site_settings
         @site_settings ||= %w{ site.title site.host dev.host local.timezone }

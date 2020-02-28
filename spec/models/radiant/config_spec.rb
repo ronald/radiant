@@ -36,25 +36,6 @@ describe Radiant::Config do
     expect(Rails.cache.read('Radiant::Config')).to eq(Radiant::Config.to_hash)
   end
 
-  it "should update the mtime on the cache file after a record is saved" do
-    expect(FileUtils).to receive(:mkpath).with("#{Rails.root}/tmp").at_least(:once)
-    expect(FileUtils).to receive(:touch).with(Radiant::Config.cache_file)
-    Radiant::Config['mtime'] = 'now'
-  end
-
-  it "should record the cache file mtime when the cache is initialized" do
-    Radiant::Config.initialize_cache
-    expect(Rails.cache.read('Radiant.cache_mtime')).to eq(File.mtime(Radiant::Config.cache_file))
-  end
-
-  it "should create a cache file when initializing the cache" do
-    Radiant::Cache.clear
-    cache_file = File.join(Rails.root,'tmp','radiant_config_cache.txt')
-    FileUtils.rm_rf(cache_file) if File.exist?(cache_file)
-    Radiant::Config.initialize_cache
-    expect(File.file?(cache_file)).to be true
-  end
-
   it "should find the value in the cache with []" do
     expect(Radiant::Config['test']).to be === Rails.cache.read('Radiant::Config')['test']
   end
