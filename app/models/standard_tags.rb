@@ -54,9 +54,9 @@ module StandardTags
     Renders the total number of children.
   }
   tag 'children:count' do |tag|
-    children = children_find_options(tag, tag.locals.children)
-    children.reorder('') # Order is irrelevant
-    children.size
+    base = children_find_options(tag, tag.locals.children)
+    base.reorder('') # Order is irrelevant
+    base.size
   end
 
   desc %{
@@ -68,8 +68,8 @@ module StandardTags
     <pre><code><r:children:first>...</r:children:first></code></pre>
   }
   tag 'children:first' do |tag|
-    children = children_find_options(tag, tag.locals.children)
-    if first = children.first
+    base = children_find_options(tag, tag.locals.children)
+    if first = base.first
       tag.locals.page = first
       tag.expand
     end
@@ -84,8 +84,8 @@ module StandardTags
     <pre><code><r:children:last>...</r:children:last></code></pre>
   }
   tag 'children:last' do |tag|
-    children = children_find_options(tag, tag.locals.children)
-    if last = children.last
+    base = children_find_options(tag, tag.locals.children)
+    if last = base.last
       tag.locals.page = last
       tag.expand
     end
@@ -1139,7 +1139,7 @@ module StandardTags
         base = aggregate_children(tag)
       else
         findable = tag.locals.children
-        base = children_find_options(tag)
+        base = children_find_options(tag, findable)
       end
       paging = pagination_find_options(tag)
       result = []
